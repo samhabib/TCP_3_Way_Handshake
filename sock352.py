@@ -78,7 +78,7 @@ class sock352Thread (threading.Thread):
 # is removed from the list of outstanding packets.
 
 def scan_for_timeouts(delay):
-    global list_of_outstanding_packets: 
+    #global list_of_outstanding_packets: 
 
     time.sleep(delay)
 
@@ -91,10 +91,9 @@ def scan_for_timeouts(delay):
 
             current_time = time.time()
             time_diff = float(current_time) - float(packet.time_sent)
-                
-                dbg_print(5,"sock352: packet timeout diff %.3f %f %f " % (time_diff,current_time,skbuf.time_sent))                
-                if (time_diff > delay):
-                    dbg_print(3,"sock352: packet timeout, retransmitting")
+            dbg_print(5,"sock352: packet timeout diff %.3f %f %f " % (time_diff,current_time,skbuf.time_sent))                
+            if (time_diff > delay):
+            	dbg_print(3,"sock352: packet timeout, retransmitting")
                     # your transmit code here ... 
         
     return 
@@ -168,10 +167,13 @@ class Packet:
 # with various drop rates
 
 class Socket:
-
     def __init__(self):
         # ... your code here ... 
-        pass 
+	self.sock = ip.socket(ip.AF_INET, ip.SOCK_DGRAM)
+        self.currentSequenceNum = 1
+        self.windowSize = None
+	self.server_address = None
+        return
 
     # Print a debugging statement line
     # 
@@ -179,14 +181,13 @@ class Socket:
     # You do not need to implement the body of this method,
     # but it must be in the library.
     def set_debug_level(self, level):
-        pass 
+	pass
 
     # Set the % likelihood to drop a packet
     #
     # you do not need to implement the body of this method,
     # but it must be in the library,
     def set_drop_prob(self, probability):
-
         pass 
 
     # Set the seed for the random number generator to get
@@ -195,7 +196,7 @@ class Socket:
     # You do not need to implement the body of this method,
     # but it must be in the library.
     def set_random_seed(self, seed):
-        self.random_seed = seed 
+        pass
         
 
     # bind the address to a port
@@ -203,23 +204,29 @@ class Socket:
     #
     def bind(self,address):
         # ... your code here ...
-        pass 
+	print "BIND ADDRESS" +str(address)
+	'''
+	self.server_address = address
+	self.sock.bind(address)
+	'''
 
     # connect to a remote port
     # You must implement this method
     def connect(self,address):
+	return
         # ... your code here ...
-        pass 
 
 
     #accept a connection
     def accept(self):
+	pass
         # ... your code here ...
-        pass 
     
     # send a message up to MAX_DATA
     # You must implement this method     
     def sendto(self,buffer):
+	print "SENDTO BUFFER " + str(buffer)
+	'''sent = self.sock.sendto(message, self.server_address)'''
         # ... your code here ...
         pass 
 
@@ -227,12 +234,20 @@ class Socket:
     # You must implement this method     
     def recvfrom(self,nbytes):
         # ... your code here ...
-[]\0\        pass
+	print("RECVFROM NBYTES " + str(nbytes))
+	'''
+	data, addr = self.sock.recvfrom(nbytes)
+	if not data:
+		print "Finished"
+	else:
+		print "received message:", data
 
+	'''
     # close the socket and make sure all outstanding
     # data is delivered 
     # You must implement this method         
     def close(self):
+	self.sock.close()
         # ... your code here ...
         pass
         
@@ -250,4 +265,5 @@ thread1.daemon = True
 
 # run the thread 
 thread1.start()
+
 
