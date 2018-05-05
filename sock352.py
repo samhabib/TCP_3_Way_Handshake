@@ -18,6 +18,7 @@ import sys
 import struct as st
 import os
 import signal
+from random import *
 
 # The first byte of every packet must have this value 
 MESSAGE_TYPE = 0x44
@@ -31,6 +32,7 @@ SYN =  0x01    # synchronize
 ACK =  0x02    # ACK is valid 
 DATA = 0x04    # Data is valid 
 FIN =  0x08    # FIN = remote side called close 
+CUS = 0x03
 
 # max size of the data payload is 63 KB
 MAX_SIZE = (63*1024)
@@ -48,6 +50,11 @@ STATE_CLOSING =  6
 STATE_CLOSED =   7
 STATE_REMOTE_CLOSED = 8
 
+
+#list of packets
+list_of_outstanding_packets = []
+list_of_sent = []
+list_of_rec = []
 
 # function to print. Higher debug levels are more detail
 # highly recommended 
@@ -169,10 +176,14 @@ class Packet:
 class Socket:
     def __init__(self):
         # ... your code here ... 
-	self.sock = ip.socket(ip.AF_INET, ip.SOCK_DGRAM)
-        self.currentSequenceNum = 1
+	self.level = None
+	self.probability = None
+	self.seed = None
+	self.socketH = ip.socket(ip.AF_INET, ip.SOCK_DGRAM)
+        self.seq = randint(100, 2000)
         self.windowSize = None
-	self.server_address = None
+	self.Server = None
+	self.Client = None
         return
 
     # Print a debugging statement line
@@ -181,14 +192,22 @@ class Socket:
     # You do not need to implement the body of this method,
     # but it must be in the library.
     def set_debug_level(self, level):
-	pass
+	if level > 0:
+		self.level = level
+		return
+	else:
+		return
 
     # Set the % likelihood to drop a packet
     #
     # you do not need to implement the body of this method,
     # but it must be in the library,
     def set_drop_prob(self, probability):
-        pass 
+	if probability > 0:	
+		self.probability = probability
+		return
+	else:
+        	return 
 
     # Set the seed for the random number generator to get
     # a consistent set of random numbers
@@ -196,60 +215,102 @@ class Socket:
     # You do not need to implement the body of this method,
     # but it must be in the library.
     def set_random_seed(self, seed):
-        pass
+	if seed > 0:
+	        self.seed = seed
+		return
+	else:
+		return
         
 
     # bind the address to a port
     # You must implement this method
     #
     def bind(self,address):
-        # ... your code here ...
-	print "BIND ADDRESS" +str(address)
-	'''
-	self.server_address = address
-	self.sock.bind(address)
-	'''
-
+	self.Server = address
+	self.socketH.bind(address)
     # connect to a remote port
     # You must implement this method
     def connect(self,address):
+	test = Packet()
+	test.windowSize = 5
+	test.type = MESSAGE_TYPE
+	test.cntl = SYN 
+	test.seq = self.seq
+	test.ack = 0
+	test.size = 0
+
+	self.Server = address
+	sendingPacket = test.pack()
+	sent = self.socketH.sendto(sendingPacket, address)
+	while(True):
+		data, address = self.socketH.recvfrom(MAX_PKT)
+		recPacket = Packet()
+		recPacket.unpack(data)
+		if recPacket.ack == self.seq:
+			print "Connection made"
+			return
 	return
         # ... your code here ...
 
 
     #accept a connection
     def accept(self):
-	pass
-        # ... your code here ...
+	data, address = self.socketH.recvfrom(MAX_PKT)
+	self.Client = address
+	packet = Packet()
+	packet.unpack(data)
+	temp = Packet()
+	temp.windowSize = 5
+	temp.type = MESSAGE_TYPE
+	temp.cntl = CUS
+	temp.seq = self.seq
+	temp.ack = packet.seq
+	temp.size = len(temp.data)
+	sendingPacket = temp.pack()
+	sent = self.socketH.sendto(sendingPacket, self.Client)
+	return
+
     
     # send a message up to MAX_DATA
     # You must implement this method     
     def sendto(self,buffer):
-	print "SENDTO BUFFER " + str(buffer)
-	'''sent = self.sock.sendto(message, self.server_address)'''
-        # ... your code here ...
-        pass 
+	
+	preSendingPacket = Packet()
+	preSendingPacket.type = MESSAGE_TYPE
+	preSendingPacket.cntl = DATA
+	preSendingPacket.data = buffer
+	preSendingPacket.windowSize = 5
+	preSendingPacket.seq = self.seq +1
+	self.seq = self.seq + 1
+	sendingPacket = preSendingPacket.pack()
+	
+	try:
+		sent = self.socketH.sendto(sendingPacket, self.Client)
+	except:
+		sent = self.socketH.sendto(sendingPacket, self.Server)
+	
+	list_of_sent.insert(0, sendingPacket)
+        return sent
 
     # receive a message up to MAX_DATA
     # You must implement this method     
     def recvfrom(self,nbytes):
         # ... your code here ...
-	print("RECVFROM NBYTES " + str(nbytes))
-	'''
-	data, addr = self.sock.recvfrom(nbytes)
-	if not data:
-		print "Finished"
-	else:
-		print "received message:", data
+	data, addr = self.socketH.recvfrom(MAX_PKT)
+	recPacket = Packet()
+	recPacket.unpack(data)
+	list_of_rec.insert(0, recPacket)
+	
+	return recPacket.data
 
-	'''
     # close the socket and make sure all outstanding
     # data is delivered 
-    # You must implement this method         
+    # You must implement this method
     def close(self):
-	self.sock.close()
-        # ... your code here ...
-        pass
+	self.socketH.close()
+	if len(list_of_rec) == len(list_of_sent):
+		return
+	return
         
 # Example how to start a start the timeout thread
 global sock352_dbg_level 
