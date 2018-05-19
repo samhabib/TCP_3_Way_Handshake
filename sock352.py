@@ -9,6 +9,7 @@
 # that is outstanding data if one side closes a connection and continues to send data,
 # or if one side does not close a connection the protocol will fail. 
 
+
 import socket as ip
 import random
 import binascii
